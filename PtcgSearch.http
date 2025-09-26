@@ -1,0 +1,6 @@
+@PtcgSearch_HostAddress = http://localhost:5076
+
+GET {{PtcgSearch_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
