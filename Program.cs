@@ -1,6 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using PtcgSearch.Models;
+using PtcgSearch.Services;
 namespace PtcgSearch
 {
     public class Program
@@ -14,10 +17,15 @@ namespace PtcgSearch
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddControllers();
-
+            builder.Services.AddHttpClient();
+            // DB Connection
+            builder.Services.AddDbContext<PtcgCardContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("PokemonCardDB")));
+            // Health Check
+            builder.Services.AddHealthChecks();
+            
+            AddPtcgSearchService(builder);
             AddSwagger(builder);
             AddCors(builder);
             AddRateLimit(builder);
@@ -44,8 +52,11 @@ namespace PtcgSearch
             app.UseAuthentication();
             // 授權
             app.UseAuthorization();
+            // 啟用Controller路由
+            app.MapControllers();
             app.Run();
         }
+
         /// <summary>
         /// 新增swagger服務
         /// </summary>
@@ -68,7 +79,6 @@ namespace PtcgSearch
                     c.SchemaFilter<SwaggerEnumSchemaFilter>();
                 }
             });
-
         }
 
         /// <summary>
@@ -97,6 +107,10 @@ namespace PtcgSearch
             });
         }
 
+        /// <summary>
+        /// 新增RateLimit規則
+        /// </summary>
+        /// <param name="builder"></param>
         private static void AddRateLimit(WebApplicationBuilder builder)
         {
             builder.Services.AddRateLimiter(options =>
@@ -135,7 +149,7 @@ namespace PtcgSearch
                     configure.Window = TimeSpan.FromMinutes(1);
                     configure.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                     configure.QueueLimit = 0;  // no queuing allowed
-                });    
+                });
                 // IP limitation
                 options.AddPolicy("PerIPPolicy", context =>
                 {
@@ -148,6 +162,14 @@ namespace PtcgSearch
                         });
                 });
             });
+        }
+        /// <summary>
+        /// 註冊PTCG Search相關服務
+        /// </summary>
+        /// <param name="builder"></param>
+        private static void AddPtcgSearchService(WebApplicationBuilder builder)
+        {
+            builder.Services.AddScoped<LoadOfficialCardInfoService>();
         }
     }
 }
